@@ -1,344 +1,286 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MS Digital Brochure</title>
+  
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/blasten/turn.js/turn.min.js"></script>
+  
   <style>
-    *{margin:0;padding:0;box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-    body{
-      font-family: Arial, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, sans-serif;
-      background: linear-gradient(135deg,#ff6b6b 0%,#a50034 100%);
-      min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
-      color:#111; user-select:none;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
-    .wrap{width:min(100%, 900px)}
-
-    /* 높이 고정: 항상 스프레드(2페이지) 기준 비율 */
-    .flipbook{
-      position:relative; width:100%; aspect-ratio: 1.414;
-      background:#fff; border-radius:8px; box-shadow:0 20px 40px rgba(0,0,0,.3); overflow:hidden;
-      perspective: 1500px; transform-style: preserve-3d; margin:0 auto;
-      -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; -webkit-user-drag:none;
+    
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #ff6b6b 0%, #a50034 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
     }
-
-    .sheet{ position:absolute; inset:0; visibility:visible; }
-
-    .page{
-      position:absolute; top:0; bottom:0; width:50%; overflow:hidden; background:#fff;
-      background-position:center; background-size:cover; background-repeat:no-repeat;
-      pointer-events:none; backface-visibility:hidden; transform-style:preserve-3d;
-      will-change: transform; transform: translateZ(0); contain: layout paint;
+    
+    #loading {
+      text-align: center;
+      color: white;
     }
-    .page.left { left:0;  border-right:1px solid rgba(0,0,0,.06); }
-    .page.right{ right:0; }
-    .page.blank{ background:#fff !important; }
-    .page.hidden{ visibility:hidden; } /* 넘김 중 임시 숨김 */
-
-    /* 중앙 스파인 */
-    .flipbook::before{
-      content:''; position:absolute; top:0; bottom:0; left:50%; width:2px; transform:translateX(-1px);
-      background: linear-gradient(180deg, rgba(0,0,0,.12), rgba(0,0,0,0) 40%, rgba(0,0,0,.12));
-      opacity:.25; pointer-events:none;
+    
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px auto;
     }
-
-    /* ====== 회전 애니메이션: 넘어가는 면만 ====== */
-    .page.turn-right {         /* Next: 오른쪽 페이지만 */
-      transform-origin: left center;
-      animation: turnRight .55s cubic-bezier(.2,.6,.2,1) forwards;
-      z-index: 10;
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
-    .page.turn-left {          /* Prev: 왼쪽 페이지만 */
-      transform-origin: right center;
-      animation: turnLeft .55s cubic-bezier(.2,.6,.2,1) forwards;
-      z-index: 10;
+    
+    .flipbook-wrapper {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      max-width: 95vw;
+      max-height: 90vh;
     }
-    .page.preset-left { transform-origin: right center; transform: rotateY(-180deg); }
-
-    .page.turn-right::after{
-      content:''; position:absolute; inset:0; pointer-events:none; opacity:.3;
-      background: linear-gradient(90deg, rgba(0,0,0,.22), rgba(0,0,0,0) 55%);
+    
+    .flipbook {
+      background: white;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      border-radius: 8px;
     }
-    .page.turn-left::after{
-      content:''; position:absolute; inset:0; pointer-events:none; opacity:.3;
-      background: linear-gradient(270deg, rgba(0,0,0,.22), rgba(0,0,0,0) 55%);
+    
+    .flipbook .page {
+      background-color: white;
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
     }
-
-    @keyframes turnRight { from { transform: rotateY(0); }    to { transform: rotateY(-180deg); } }
-    @keyframes turnLeft  { from { transform: rotateY(-180deg);} to { transform: rotateY(0); } }
-
-    .controls{ display:flex; justify-content:center; align-items:center; gap:12px; margin-top:20px }
-    .nav-btn{
-      background:#fff; color:#e60012; border:none; padding:12px 20px; border-radius:999px; cursor:pointer;
-      font-size:15px; font-weight:700; transition: transform .15s ease, box-shadow .15s ease; box-shadow:0 6px 18px rgba(230,0,18,.35);
-      user-select:none; -webkit-user-select:none;
+    
+    .controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 15px;
     }
-    .nav-btn:hover{ transform: translateY(-1px); box-shadow:0 10px 24px rgba(230,0,18,.45); }
-    .nav-btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none }
-
-    .loading{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
-      background: rgba(255,255,255,.95); z-index:2000; gap:10px }
-    .spinner{ width:30px; height:30px; border:3px solid #f3f3f3; border-top:3px solid #e60012; border-radius:50%; animation:spin .8s linear infinite }
-    @keyframes spin{ to{ transform: rotate(360deg) } }
-
-    @media (max-width: 768px){ .wrap{width:90vw} .nav-btn{ padding:10px 16px; font-size:14px } }
-    @media (prefers-reduced-motion: reduce){ .page{ animation:none !important } }
+    
+    .nav-btn {
+      background: white;
+      color: #e60012;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 25px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      transition: all 0.2s ease;
+    }
+    
+    .nav-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+    }
+    
+    .nav-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .page-info {
+      color: white;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    
+    .error {
+      color: white;
+      text-align: center;
+      background: rgba(255,255,255,0.1);
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 500px;
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="flipbook" id="flipbook" aria-label="Flipbook">
-      <div class="loading" id="loading"><div class="spinner"></div><div>Loading pages…</div></div>
-    </div>
-
-    <div class="controls" aria-label="Pagination controls">
+  <div id="loading">
+    <div class="spinner"></div>
+    <div>Loading brochure...</div>
+  </div>
+  
+  <div class="flipbook-wrapper" id="flipbookWrapper">
+    <div class="flipbook" id="flipbook"></div>
+    <div class="controls">
       <button class="nav-btn" id="prevBtn">← Previous</button>
       <button class="nav-btn" id="nextBtn">Next →</button>
     </div>
+    <div class="page-info" id="pageInfo"></div>
   </div>
-
+  
   <script>
-    const CONFIG = {
-      imagePrefix: 'pg',
-      imageExtensions: ['jpg','jpeg','png','webp'],
-      maxPagesToCheck: 100,
-      loadingTimeout: 5000,
-      preloadAhead: 2
-    };
-
-    let totalImages = 0, currentSheet = 0, totalSheets = 0, isAnimating = false;
-    const sheets = [];  // [{type, align, pages:[{number,path}], _el, baseZ:int}]
-    const preloaded = new Set();
-
-    const $ = s => document.querySelector(s);
-    const flipbook = $('#flipbook'), loading = $('#loading');
-    const prevBtn = $('#prevBtn'), nextBtn = $('#nextBtn');
-
-    prevBtn.addEventListener('click', previousSheet);
-    nextBtn.addEventListener('click', nextSheet);
-
-    document.addEventListener('keydown', e=>{
-      if(['ArrowLeft','ArrowUp'].includes(e.key)){ e.preventDefault(); previousSheet(); }
-      if(['ArrowRight','ArrowDown'].includes(e.key)){ e.preventDefault(); nextSheet(); }
-    });
-
-    flipbook.addEventListener('contextmenu', e=>e.preventDefault());
-    document.addEventListener('dragstart', e=>e.preventDefault());
-
-    async function init(){
-      const detected = await detectPages();
-      if(detected.length === 0){
-        loading.innerHTML = `<div style="color:#e74c3c;text-align:center"><strong>No pages found</strong><br>폴더에 <code>${CONFIG.imagePrefix}1.jpg</code>, <code>${CONFIG.imagePrefix}2.jpg</code> … 형태로 배치하세요.<br><small>지원: ${CONFIG.imageExtensions.join(', ')}</small></div>`;
-        updateControls(); return;
+    $(document).ready(function() {
+      const PREFIX = "pg";
+      const EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
+      const MAX_PAGES = 50;
+      
+      async function checkImage(src) {
+        return new Promise(resolve => {
+          const img = new Image();
+          const timeout = setTimeout(() => resolve(false), 3000);
+          img.onload = () => { clearTimeout(timeout); resolve(true); };
+          img.onerror = () => { clearTimeout(timeout); resolve(false); };
+          img.src = src;
+        });
       }
-      totalImages = detected.length;
-
-      // 시트 구성
-      sheets.push({ type:'single', align:'right', pages:[ detected[0] ] }); // COVER
-      for(let i=1; i<detected.length; i+=2){
-        if(i+1 < detected.length){ sheets.push({ type:'spread', pages:[ detected[i], detected[i+1] ] }); }
-        else { sheets.push({ type:'single', align:'left', pages:[ detected[i] ] }); } // LAST
-      }
-      totalSheets = sheets.length;
-
-      // DOM + baseZ 기록
-      sheets.forEach((sheet, idx)=>{
-        const el = createSheet(sheet);
-        const baseZ = 1000 - idx;
-        el.style.zIndex = baseZ;
-        el.style.visibility = (idx === 0) ? 'visible' : 'visible'; // 모든 시트는 기본 보임(스택으로 가려짐)
-        flipbook.appendChild(el);
-        sheet._el = el; sheet.baseZ = baseZ;
-      });
-
-      // 현재 외 모든 시트를 숨겨서 시작(두 시트만 보이도록)
-      hideAllExcept(currentSheet, currentSheet+1);
-
-      loading.style.display = 'none';
-      updateControls();
-      preloadAround(currentSheet);
-    }
-
-    function createSheet(sheet){
-      const el = document.createElement('div');
-      el.className = 'sheet';
-      if(sheet.type === 'single'){
-        const blankSide = sheet.align === 'left' ? 'right' : 'left';
-        el.appendChild(makeBlankPage(blankSide));
-        el.appendChild(makePage(sheet.pages[0], sheet.align));
-      } else {
-        el.appendChild(makePage(sheet.pages[0], 'left'));
-        el.appendChild(makePage(sheet.pages[1], 'right'));
-      }
-      return el;
-    }
-
-    function makeBlankPage(side){
-      const d = document.createElement('div');
-      d.className = 'page blank ' + (side==='left' ? 'left' : 'right');
-      return d;
-    }
-
-    function makePage(data, side){
-      const d = document.createElement('div');
-      d.className = 'page ' + (side==='left' ? 'left' : 'right');
-      d.style.backgroundImage = `url('${data.path}')`;
-      return d;
-    }
-
-    function updateControls(){
-      prevBtn.disabled = (currentSheet <= 0) || isAnimating;
-      nextBtn.disabled = (currentSheet >= totalSheets - 1) || isAnimating;
-    }
-
-    function hideAllExcept(a, b){
-      sheets.forEach((s, i)=>{
-        s._el.style.visibility = (i === a || i === b) ? 'visible' : 'hidden';
-        resetPages(s._el);
-        s._el.style.zIndex = s.baseZ; // zIndex 초기화
-      });
-    }
-
-    function resetPages(el){
-      el.querySelectorAll('.page').forEach(p=>{
-        p.classList.remove('hidden','turn-right','turn-left','preset-left');
-      });
-    }
-
-    function nextSheet(){
-      if(isAnimating || currentSheet >= totalSheets-1) return;
-      isAnimating = true; updateControls();
-
-      const curIndex = currentSheet;
-      const nxtIndex = currentSheet + 1;
-      const cur = sheets[curIndex]._el;
-      const nxt = sheets[nxtIndex]._el;
-
-      // 이번 동작에 필요한 두 시트만 보이게
-      hideAllExcept(curIndex, nxtIndex);
-
-      // 왼쪽을 즉시 갱신: 현재 시트의 왼쪽을 숨겨 다음 시트의 왼쪽이 즉시 보이게
-      const leftCur = cur.querySelector('.page.left'); leftCur?.classList.add('hidden');
-
-      // 오른쪽 페이지만 회전
-      const right = cur.querySelector('.page.right');
-      if(!right){ isAnimating=false; updateControls(); return; }
-
-      preloadAround(nxtIndex);
-
-      requestAnimationFrame(()=>{
-        right.classList.add('turn-right');
-        right.addEventListener('animationend', onEnd, {once:true});
-      });
-
-      function onEnd(){
-        // 현재 시트는 숨기고, 다음 시트만 남김
-        cur.style.visibility = 'hidden';
-        leftCur?.classList.remove('hidden');
-        currentSheet = nxtIndex;
-
-        // 다음 동작 대비: 현재와 그 다음만 보이게 유지
-        hideAllExcept(currentSheet, currentSheet+1);
-
-        isAnimating = false; updateControls();
-      }
-    }
-
-    function previousSheet(){
-      if(isAnimating || currentSheet <= 0) return;
-      isAnimating = true; updateControls();
-
-      const prevIndex = currentSheet - 1;
-      const prev = sheets[prevIndex]._el;
-      const cur  = sheets[currentSheet]._el;
-
-      // 이번 동작에 필요한 두 시트만 보이게
-      hideAllExcept(prevIndex, currentSheet);
-
-      // Prev 동안 prev가 위에 오게 잠깐 zIndex 올림
-      const curZ = parseInt(cur.style.zIndex, 10) || sheets[currentSheet].baseZ;
-      const originalZ = prev.style.zIndex;
-      prev.style.zIndex = (curZ + 1).toString();
-
-      // 오른쪽을 즉시 갱신: 현재 시트의 오른쪽을 숨겨 이전 시트의 오른쪽이 즉시 보이게
-      const rightCur = cur.querySelector('.page.right'); rightCur?.classList.add('hidden');
-
-      // 이전 시트의 왼쪽 페이지만 -180 -> 0 회전
-      const left = prev.querySelector('.page.left');
-      if(!left){
-        rightCur?.classList.remove('hidden');
-        prev.style.zIndex = originalZ;
-        isAnimating=false; updateControls(); return;
-      }
-
-      preloadAround(prevIndex);
-
-      left.classList.add('preset-left');
-      requestAnimationFrame(()=>{
-        left.classList.add('turn-left');
-        left.addEventListener('animationend', onEnd, {once:true});
-      });
-
-      function onEnd(){
-        // 현재 시트 숨기고, 이전 시트만 남김
-        cur.style.visibility = 'hidden';
-        prev.style.zIndex = originalZ;
-        rightCur?.classList.remove('hidden');
-
-        currentSheet = prevIndex;
-
-        // 다음 동작 대비: 현재와 그 다음만 보이게 유지
-        hideAllExcept(currentSheet, currentSheet+1);
-
-        isAnimating = false; updateControls();
-        left.classList.remove('preset-left','turn-left');
-      }
-    }
-
-    function preloadAround(index){
-      const paths = [];
-      for(let d=-CONFIG.preloadAhead; d<=CONFIG.preloadAhead; d++){
-        const si = index + d;
-        if(si<0 || si>=sheets.length) continue;
-        const s = sheets[si];
-        if(s.type==='single') paths.push(s.pages[0].path);
-        else paths.push(s.pages[0].path, s.pages[1].path);
-      }
-      paths.forEach(p=>{
-        if(preloaded.has(p)) return;
-        const im = new Image();
-        im.decoding = 'async'; im.loading = 'eager'; im.src = p;
-        preloaded.add(p);
-      });
-    }
-
-    async function detectPages(){
-      const found = [];
-      for(let i=1;i<=CONFIG.maxPagesToCheck;i++){
-        let ok=false, pickedPath='';
-        for(const ext of CONFIG.imageExtensions){
-          const src = `${CONFIG.imagePrefix}${i}.${ext}`;
-          const exists = await checkImage(src);
-          if(exists){ ok=true; pickedPath=src; break; }
+      
+      async function detectPages() {
+        const pages = [];
+        for(let i = 1; i <= MAX_PAGES; i++) {
+          let found = false;
+          for(const ext of EXTENSIONS) {
+            const src = `${PREFIX}${i}.${ext}`;
+            if(await checkImage(src)) {
+              pages.push(src);
+              found = true;
+              break;
+            }
+          }
+          if(!found && pages.length > 0) break;
         }
-        if(ok){ found.push({number:i, path:pickedPath}); }
-        else if(found.length>0){ break; }
+        return pages;
       }
-      return found;
-    }
-
-    function checkImage(src){
-      return new Promise((resolve)=>{
-        const img = new Image();
-        let done=false;
-        const to = setTimeout(()=>{ if(!done){ done=true; resolve(false); } }, CONFIG.loadingTimeout);
-        img.onload = ()=>{ if(!done){ done=true; clearTimeout(to); resolve(true); } };
-        img.onerror = ()=>{ if(!done){ done=true; clearTimeout(to); resolve(false); } };
-        img.src = src + `?v=${Date.now()}`;
-      });
-    }
-
-    init();
+      
+      async function init() {
+        try {
+          const pages = await detectPages();
+          $("#loading").hide();
+          
+          if(pages.length === 0) {
+            $("body").append(`
+              <div class="error">
+                <h3>No pages found</h3>
+                <p>Make sure your files are named:</p>
+                <p><strong>Pg1.jpg, Pg2.jpg, Pg3.jpg</strong>, etc.</p>
+                <p>And placed in the same folder as this HTML file.</p>
+              </div>
+            `);
+            return;
+          }
+          
+          // Create pages
+          const flipbook = $("#flipbook");
+          pages.forEach(src => {
+            const page = $(`<div class="page"></div>`);
+            page.css('background-image', `url(${src})`);
+            flipbook.append(page);
+          });
+          
+          // Show flipbook
+          $("#flipbookWrapper").show();
+          
+          // Calculate size
+          const isMobile = $(window).width() < 800;
+          const containerWidth = Math.min($(window).width() * 0.9, 1000);
+          const containerHeight = Math.min($(window).height() * 0.7, 700);
+          
+          let width, height;
+          if(isMobile) {
+            // Single page on mobile
+            const ratio = 1 / 1.414;
+            height = Math.min(containerHeight, 600);
+            width = height * ratio;
+            if(width > containerWidth) {
+              width = containerWidth;
+              height = width / ratio;
+            }
+          } else {
+            // Double page on desktop
+            const ratio = 2 / 1.414;
+            width = Math.min(containerWidth, 800);
+            height = width / ratio;
+            if(height > containerHeight) {
+              height = containerHeight;
+              width = height * ratio;
+            }
+          }
+          
+          // Initialize turn.js
+          flipbook.turn({
+            width: width,
+            height: height,
+            autoCenter: true,
+            display: isMobile ? 'single' : 'double',
+            gradients: true,
+            elevation: 50
+          });
+          
+          // Navigation
+          $("#prevBtn").click(() => {
+            flipbook.turn("previous");
+            updatePageInfo();
+          });
+          
+          $("#nextBtn").click(() => {
+            flipbook.turn("next");
+            updatePageInfo();
+          });
+          
+          // Update page info
+          function updatePageInfo() {
+            const current = flipbook.turn('page');
+            const total = flipbook.turn('pages');
+            const display = flipbook.turn('display');
+            
+            let info;
+            if(display === 'double' && current < total) {
+              info = `Pages ${current}-${current + 1} of ${total}`;
+            } else {
+              info = `Page ${current} of ${total}`;
+            }
+            
+            $("#pageInfo").text(info);
+            
+            $("#prevBtn").prop('disabled', current <= 1);
+            $("#nextBtn").prop('disabled', current >= total);
+          }
+          
+          flipbook.bind("turned", updatePageInfo);
+          updatePageInfo();
+          
+          // Keyboard navigation
+          $(document).keydown(function(e) {
+            if(e.which === 37) { // Left arrow
+              flipbook.turn("previous");
+              updatePageInfo();
+            } else if(e.which === 39) { // Right arrow
+              flipbook.turn("next");
+              updatePageInfo();
+            }
+          });
+          
+        } catch(error) {
+          $("#loading").hide();
+          $("body").append(`
+            <div class="error">
+              <h3>Error loading brochure</h3>
+              <p>Please check that your image files are in the correct location.</p>
+            </div>
+          `);
+        }
+      }
+      
+      init();
+    });
   </script>
 </body>
 </html>
